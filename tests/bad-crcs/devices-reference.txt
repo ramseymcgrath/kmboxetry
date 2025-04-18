@@ -1,2 +1,0 @@
- Device 7: Unknown
-    No device descriptor

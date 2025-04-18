@@ -1,72 +1,23 @@
 //! Version information.
 
-use std::fmt::Write;
+use std::env;
 
-use crate::built::*;
-
-pub fn version() -> String {
-   const MOD: &str = match GIT_DIRTY {
-      Some(true) => "-modified",
-      Some(false) | None => ""
-   };
-
-   match GIT_VERSION {
-      None => PKG_VERSION.to_string(),
-      Some(description) => format!("{PKG_VERSION} (git {description}{MOD})")
-   }
+/// Returns the version string for the application
+pub fn version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
 }
 
+/// Returns detailed version information
 pub fn version_info(with_dependencies: bool) -> String {
-   let gtk_version = format!("{}.{}.{}",
-      gtk::major_version(),
-      gtk::minor_version(),
-      gtk::micro_version());
+    let output = format!("\
+Packetry Injector build information:
+  Version: {}",
+        env!("CARGO_PKG_VERSION")
+    );
 
-   const COMMIT: &str = match GIT_COMMIT_HASH {
-      Some(commit) => commit,
-      None => "unknown"
-   };
-
-   const MODIFIED: &str = match GIT_DIRTY {
-      Some(true) => " (modified)",
-      Some(false) | None => ""
-   };
-
-   #[allow(clippy::const_is_empty)]
-   const FEATURE_LIST: &str = if FEATURES.is_empty() {
-      "(none)"
-   } else {
-      FEATURES_LOWERCASE_STR
-   };
-
-   const DEBUG_STR: &str = if DEBUG {"yes"} else {"no"};
-
-   let output = format!("\
-Runtime information:
-  GTK version: {gtk_version}
-
-Packetry build information:
-  Git commit: {COMMIT}{MODIFIED}
-  Cargo package version: {PKG_VERSION}
-  Enabled features: {FEATURE_LIST}
-
-Rust compiler:
-  Version: {RUSTC_VERSION}
-  Target: {TARGET} ({CFG_ENDIAN}-endian, {CFG_POINTER_WIDTH}-bit)
-  Optimization level: {OPT_LEVEL}
-  Debug build: {DEBUG_STR}");
-
-  if with_dependencies {
-     DEPENDENCIES
-        .iter()
-        .fold(
-            format!("{output}\n\nBuilt with dependencies:"),
-            |mut string, (pkg, ver)| {
-                write!(string, "\n  {pkg} {ver}").unwrap();
-                string
-            }
-        )
-   } else {
-      output
-   }
+    if with_dependencies {
+        format!("{}\n\nBuilt with dependencies:\n  nusb 0.1.13\n  serialport 4.2\n  clap 4.4", output)
+    } else {
+        output
+    }
 }

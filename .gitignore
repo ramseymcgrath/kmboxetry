@@ -5,12 +5,4 @@
 /tests/ui/*/output.txt
 /tests/hid/*/output.txt
 /vcpkg
-/wix/LICENSE-dynamic-libraries.txt
-/wix/LICENSE-packetry.txt
-/wix/LICENSE-static-libraries.txt
-/wix/dll-components.wxi
-/wix/dll-references.wxi
-/wix/full-licenses
-/wix/license-components.wxi
-/wix/license-references.wxi
-HITL-*.pcap
+/.vscode

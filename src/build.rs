@@ -1,5 +1,6 @@
 //! Code to be executed at build time.
 
 fn main() {
-    built::write_built_file().expect("Failed to acquire build-time information");
+    // No build-time operations needed
+    println!("cargo:rerun-if-changed=Cargo.toml");
 }

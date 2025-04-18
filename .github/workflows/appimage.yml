@@ -152,33 +152,3 @@ jobs:
         run: |
           xvfb-run cargo test
         if: runner.os == 'Linux'
-
-      - name: Install cargo-license (Linux)
-        uses: taiki-e/cache-cargo-install-action@v2
-        with:
-          tool: cargo-license
-
-      - name: Gather licenses (Linux)
-        # If the default shell is used, one command failing does not fail the action.
-        shell: bash
-        run: |
-          pip install license-expression
-          python wix/rust_licenses.py > appimage/packetry.AppDir/usr/share/doc/LICENSE-static-libraries.txt
-          mv wix/full-licenses appimage/packetry.AppDir/usr/share/doc
-          cp LICENSE appimage/packetry.AppDir/usr/share/doc/LICENSE-packetry.txt
-
-      - name: Run build appimage action (Linux)
-        # NB: The full path to the action is: ./appimage/action.yml
-        uses: ./appimage/
-        with:
-          executable:   target/release/packetry
-          icon-file:    appimage/dist/icon.png
-          desktop-file: appimage/dist/packetry.desktop
-          appdir:       appimage/packetry.AppDir
-
-      - name: Upload AppImage binary (Linux)
-        uses: actions/upload-artifact@v4
-        with:
-          name: Linux AppImage binary
-          path: packetry-x86_64.AppImage
-          if-no-files-found: error
