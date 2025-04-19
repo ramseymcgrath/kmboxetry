@@ -2,22 +2,17 @@ name: Generate Cynthion Bitstream
 
 on:
   push:
-    branches: [ ci, main ]
     paths:
       - 'hdl/**'
-      - '.github/workflows/get_bitsteam.yml'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'hdl/**'
+      - '.github/workflows/generate-bitstream.yml'
   workflow_dispatch:  # Allow manual triggering
 
 jobs:
   build-bitstream:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           submodules: 'recursive'
 
@@ -60,22 +55,41 @@ jobs:
           # Run the build system (adjust paths as needed for your specific Cynthion setup)
           cd hardware/luna
           python3 -m amaranth_boards.cynthion create-bitstream
+          
+          # Create directory for artifacts and collect bitstream files
+          mkdir -p ${{ github.workspace }}/bitstream_artifacts
+          find . -name "*.bit" -o -name "*.svf" | xargs -I {} cp {} ${{ github.workspace }}/bitstream_artifacts/
+          
+          # List what we found
+          ls -la ${{ github.workspace }}/bitstream_artifacts/
 
-      - name: Upload bitstream as artifact
-        uses: actions/upload-artifact@v3
+      - name: Generate Changelog
+        if: github.ref_type == 'tag'
+        run: |
+          echo "# Cynthion Bitstream Release" > ${{ github.workspace }}-CHANGELOG.txt
+          echo "" >> ${{ github.workspace }}-CHANGELOG.txt
+          echo "Generated on: $(date)" >> ${{ github.workspace }}-CHANGELOG.txt
+          echo "" >> ${{ github.workspace }}-CHANGELOG.txt
+          echo "## Included Files" >> ${{ github.workspace }}-CHANGELOG.txt
+          for file in $(find ${{ github.workspace }}/bitstream_artifacts -type f); do
+            echo "* $(basename $file)" >> ${{ github.workspace }}-CHANGELOG.txt
+          done
+          
+          cat ${{ github.workspace }}-CHANGELOG.txt
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
         with:
           name: cynthion-bitstream
-          path: |
-            **/*.bit
-            **/*.svf
+          path: ${{ github.workspace }}/bitstream_artifacts/
           if-no-files-found: error
 
-      - name: Create release with bitstream (on tag only)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
         with:
-          files: |
-            **/*.bit
-            **/*.svf
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          body_path: ${{ github.workspace }}-CHANGELOG.txt
+          files: ${{ github.workspace }}/bitstream_artifacts/*
+          # Uncomment and modify if you want to release to a different repository
+          # repository: username/repository-name
+          # token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
