@@ -2,7 +2,7 @@ name: Generate Cynthion Bitstream
 
 on:
   push:
-    branches: [ main ]
+    branches: [ ci, main ]
     paths:
       - 'hdl/**'
       - '.github/workflows/get_bitsteam.yml'
@@ -62,7 +62,7 @@ jobs:
           python3 -m amaranth_boards.cynthion create-bitstream
 
       - name: Upload bitstream as artifact
-        uses: actions/upload-artifact@v2  # Downgraded from v3 to v2
+        uses: actions/upload-artifact@v3
         with:
           name: cynthion-bitstream
           path: |
