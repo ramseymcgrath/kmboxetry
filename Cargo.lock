@@ -316,6 +316,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
+name = "hidreport"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c9c7df1b46b8e8c9fbf6f1d8e1fedf42e2443b379cd683e927363b4d2749b7f"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "indexmap"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -511,6 +520,7 @@ dependencies = [
  "derive_more",
  "futures-channel",
  "futures-lite",
+ "hidreport",
  "itertools",
  "num_enum",
  "nusb",

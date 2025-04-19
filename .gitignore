@@ -6,4 +6,3 @@
 /tests/hid/*/output.txt
 /vcpkg
 /.vscode
-Cargo.lock

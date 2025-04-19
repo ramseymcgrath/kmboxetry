@@ -20,6 +20,7 @@ bytemuck = { version = "1.14", features = ["derive"] }
 bytemuck_derive = "1.5"
 crc = "3.0"
 derive_more = "0.99"
+hidreport = "0.1"
 itertools = "0.12"
 num_enum = "0.7"
 usb-ids = "1.4"
