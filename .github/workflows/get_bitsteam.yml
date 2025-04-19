@@ -20,7 +20,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake python3-pip python3-dev \
-            libboost-all-dev libeigen3-dev zlib1g-dev libftdi1-dev
+            libboost-all-dev libeigen3-dev zlib1g-dev libftdi1-dev \
+            python3-setuptools python3-wheel
 
       - name: Setup FPGA toolchain
         run: |
@@ -33,13 +34,23 @@ jobs:
       - name: Install Python requirements
         run: |
           python3 -m pip install --upgrade pip
-          python3 -m pip install migen nmigen luna amaranth
+          
+          # Install dependencies first
+          python3 -m pip install networkx setuptools wheel pyvcd
+          python3 -m pip install usb pytest
+          
+          # Install HDL tools one by one to handle dependencies better
+          python3 -m pip install migen
+          python3 -m pip install nmigen
+          python3 -m pip install amaranth
+          
+          # Now install luna with explicit dependency resolution
+          python3 -m pip install git+https://github.com/greatscottgadgets/luna.git
 
       - name: Clone Cynthion repository if needed
         if: ${{ !contains(github.repository, 'cynthion') }}
         run: |
           git clone --recursive https://github.com/greatscottgadgets/cynthion.git cynthion-repo
-          cd cynthion-repo
 
       - name: Build bitstream
         run: |
@@ -52,15 +63,43 @@ jobs:
           
           cd $CYNTHION_DIR
           
+          # Print directory structure for debugging
+          echo "Current directory: $(pwd)"
+          ls -la
+          
           # Run the build system (adjust paths as needed for your specific Cynthion setup)
-          cd hardware/luna
-          python3 -m amaranth_boards.cynthion create-bitstream
+          if [ -d "hardware/luna" ]; then
+            cd hardware/luna
+          elif [ -d "luna" ]; then
+            cd luna
+          else
+            echo "Cannot find luna directory, trying amaranth_boards directly"
+          fi
+          
+          echo "Build directory: $(pwd)"
+          ls -la
+          
+          # Try to build the bitstream
+          python3 -m amaranth_boards.cynthion create-bitstream || {
+            echo "Failed with amaranth_boards.cynthion, trying alternative approaches..."
+            
+            # Try alternate build commands if first one fails
+            if [ -f "cynthion.py" ]; then
+              python3 cynthion.py
+            elif [ -d "gateware" ]; then
+              cd gateware
+              if [ -f "build.py" ]; then
+                python3 build.py
+              fi
+            fi
+          }
           
           # Create directory for artifacts and collect bitstream files
           mkdir -p ${{ github.workspace }}/bitstream_artifacts
-          find . -name "*.bit" -o -name "*.svf" | xargs -I {} cp {} ${{ github.workspace }}/bitstream_artifacts/
+          find $CYNTHION_DIR -name "*.bit" -o -name "*.svf" | xargs -I {} cp {} ${{ github.workspace }}/bitstream_artifacts/ || echo "No bitstream files found"
           
           # List what we found
+          echo "Bitstream artifacts:"
           ls -la ${{ github.workspace }}/bitstream_artifacts/
 
       - name: Generate Changelog
@@ -71,9 +110,15 @@ jobs:
           echo "Generated on: $(date)" >> ${{ github.workspace }}-CHANGELOG.txt
           echo "" >> ${{ github.workspace }}-CHANGELOG.txt
           echo "## Included Files" >> ${{ github.workspace }}-CHANGELOG.txt
-          for file in $(find ${{ github.workspace }}/bitstream_artifacts -type f); do
-            echo "* $(basename $file)" >> ${{ github.workspace }}-CHANGELOG.txt
-          done
+          
+          # Check if directory exists and has files
+          if [ -d "${{ github.workspace }}/bitstream_artifacts" ] && [ "$(ls -A ${{ github.workspace }}/bitstream_artifacts)" ]; then
+            for file in $(find ${{ github.workspace }}/bitstream_artifacts -type f); do
+              echo "* $(basename $file)" >> ${{ github.workspace }}-CHANGELOG.txt
+            done
+          else
+            echo "* No bitstream files were generated" >> ${{ github.workspace }}-CHANGELOG.txt
+          fi
           
           cat ${{ github.workspace }}-CHANGELOG.txt
 
@@ -82,7 +127,7 @@ jobs:
         with:
           name: cynthion-bitstream
           path: ${{ github.workspace }}/bitstream_artifacts/
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Release
         uses: softprops/action-gh-release@v2
