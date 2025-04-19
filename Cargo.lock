@@ -325,6 +325,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "hut"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c69be4a9d43b7aaa826b7bce39f636b9a418b7aaabab0ef08ffb92582946a7ec"
+
+[[package]]
 name = "indexmap"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -521,6 +527,7 @@ dependencies = [
  "futures-channel",
  "futures-lite",
  "hidreport",
+ "hut",
  "itertools",
  "num_enum",
  "nusb",

@@ -31,6 +31,8 @@ use crate::util::{
     titlecase
 };
 
+use bitfield::bitfield;
+
 fn crc16(bytes: &[u8]) -> u16 {
     const CRC16: Crc<u16> = Crc::<u16>::new(&CRC_16_USB);
     CRC16.checksum(bytes)
@@ -1384,7 +1386,7 @@ fn write_report(f: &mut Formatter<'_>, kind: &str, report: &impl Report)
                 write_usage(f, &var.usage)?;
                 write!(f, ": ")?;
                 write_bits(f, &var.bits)?;
-                let bit_count = var.bits.end - var.bits.start;
+                let bit_count = *var.bits.end() - *var.bits.start() + 1;
                 if bit_count > 1 {
                     let max = (1 << bit_count) - 1;
                     if var.logical_minimum != LogicalMinimum::from(0) ||
@@ -1427,34 +1429,49 @@ where u32: From<T>
     Ok(())
 }
 
-fn write_bits(f: &mut Formatter, bit_range: &Range<usize>)
+fn write_bits<R>(f: &mut Formatter, bit_range: &R)
     -> Result<(), std::fmt::Error>
+where
+    R: std::ops::RangeBounds<usize> + Clone,
 {
-    let bit_count = bit_range.end - bit_range.start;
-    let byte_range = (bit_range.start / 8)..((bit_range.end - 1)/ 8);
+    // Get start and end from any range type
+    let start = match bit_range.start_bound() {
+        std::ops::Bound::Included(&n) => n,
+        std::ops::Bound::Excluded(&n) => n + 1,
+        std::ops::Bound::Unbounded => 0,
+    };
+    
+    let end = match bit_range.end_bound() {
+        std::ops::Bound::Included(&n) => n + 1, // +1 because we want the count
+        std::ops::Bound::Excluded(&n) => n,
+        std::ops::Bound::Unbounded => panic!("Unbounded end in bit range"),
+    };
+    
+    let bit_count = end - start;
+    let byte_range = (start / 8)..((end - 1)/ 8);
     let byte_count = byte_range.end - byte_range.start;
     match (byte_count, bit_count) {
         (_, 1) => write!(f,
             "byte {} bit {}",
             byte_range.start,
-            bit_range.start % 8)?,
-        (0, n) if n == 8 && bit_range.start % 8 == 0 => write!(f,
+            start % 8)?,
+        (0, n) if n == 8 && start % 8 == 0 => write!(f,
             "byte {}",
             byte_range.start)?,
         (0, _) => write!(f,
             "byte {} bits {}-{}",
             byte_range.start,
-            bit_range.start % 8, (bit_range.end - 1) % 8)?,
-        (_, n) if n % 8 == 0 && bit_range.start % 8 == 0 => write!(f,
+            start % 8, (end - 1) % 8)?,
+        (_, n) if n % 8 == 0 && start % 8 == 0 => write!(f,
             "bytes {}-{}",
             byte_range.start,
             byte_range.end)?,
         (_, _) => write!(f,
             "byte {} bit {} — byte {} bit {}",
             byte_range.start,
-            bit_range.start % 8,
+            start % 8,
             byte_range.end,
-            (bit_range.end - 1) % 8)?,
+            (end - 1) % 8)?,
     }
     Ok(())
 }

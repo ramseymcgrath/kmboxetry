@@ -13,6 +13,7 @@ clap = { version = "4.4", features = ["derive"] } # For command-line parsing
 ctrlc = "3.4" # For graceful shutdown on Ctrl+C
 futures-lite = "1.13" # For block_on in async code
 futures-channel = "0.3" # For oneshot channel
+hut = "0.4.0" # Human Interface Device Usage Tables
 
 # Dependencies for testing only
 [dev-dependencies]
