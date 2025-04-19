@@ -68,7 +68,7 @@ Make sure `dfu-util`, OSS CAD Suite binaries, and `cargo` are on your `$PAT
 
 ```bash
 # repo root
-env PYTHONPATH=. python src/backend/cynthion_passthrough.py
+env PYTHONPATH=. python src/backend/mouse_streamer.py
 ```
 The bitstream appears at `build/gateware/top.bit`.
 

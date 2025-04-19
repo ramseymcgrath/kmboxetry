@@ -50,7 +50,7 @@ struct Args {
     #[arg(long)]
     dependencies: bool,
 
-    /* // --- Optional: Serial Listener ---
+    /* // --- TODO: kmbox b+ serial ---
     /// Run in Serial server mode, *listening* for commands on the specified port
     #[arg(long = "listen-serial", value_name = "PORT", conflicts_with = "udp")]
     listen_serial_port: Option<String>,
@@ -113,8 +113,6 @@ fn handle_list_command() -> Result<(), Error> {
     println!(
         "\nNote: Cynthion injection control now uses the serial port specified via --control-serial."
     );
-    // Optionally add back USB device probing here if you want to list potential DFU devices.
-    // Remember to add `nusb` or `rusb` dependency and probing code if needed.
     Ok(())
 }
 
@@ -221,7 +219,7 @@ fn run_udp_server(
                     }
                     Err(_) => {
                         eprintln!("\nReceived non-UTF8 data from {}", src_addr);
-                        // Optionally log the raw bytes: eprintln!(" Bytes: {:?}", received_data);
+                        //eprintln!(" Bytes: {:?}", received_data);
                     }
                 }
             }
@@ -247,7 +245,7 @@ fn run_udp_server(
     Ok(())
 }
 
-/* // --- Optional: Serial Listener Logic ---
+/* // --- KMBOX B+ logic ---
 fn run_serial_listener(
     listen_port_name: &str,
     listen_baud_rate: u32,
@@ -387,7 +385,7 @@ fn main() -> Result<(), Error> {
      else {
          // If no listening mode is specified, return an error or provide default behavior.
           bail!("No command input mode specified. Use --udp <IP:PORT>. (Or --listen-serial if enabled).");
-          // Alternative: Could run an interactive loop reading from stdin here.
+          //TODO: Could run an interactive loop reading from stdin here.
     };
 
     // --- Cleanup & Exit ---
