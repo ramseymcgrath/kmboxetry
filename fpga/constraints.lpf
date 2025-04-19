@@ -9,9 +9,9 @@ FREQUENCY PORT "clk" 100.0 MHz;
 LOCATE COMP "rst_n" SITE "R7";
 
 # USB pins
-LOCATE COMP "usb_dp" SITE "A2";
-LOCATE COMP "usb_dm" SITE "A1";
-LOCATE COMP "usb_pu" SITE "A3";
+LOCATE COMP "usb_dp" SITE "B19";
+LOCATE COMP "usb_dm" SITE "A19";
+LOCATE COMP "usb_pu" SITE "A18";
 
 # LED pins
 LOCATE COMP "leds[0]" SITE "B16";
