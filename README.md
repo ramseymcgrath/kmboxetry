@@ -1,182 +1,241 @@
-# KMBoxetry - USB HID Injection for Cynthion FPGA
+# KMBoxetry – Cynthion USB Tooling
 
-KMBoxetry is a tool for injecting USB HID (Human Interface Device) commands using Cynthion FPGA hardware. It allows you to send mouse movements and button presses through a Cynthion device, which can be controlled via UDP or serial communication.
+[![Build Status](https://github.com/yourusername/kmboxetry/actions/workflows/get_bitstream.yml/badge.svg)](https://github.com/yourusername/kmboxetry/actions/workflows/get_bitstream.yml)
+[![Code Coverage](https://codecov.io/gh/yourusername/kmboxetry/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/kmboxetry)
+
+> ✨ **Current status – UART‑controlled HID injection**  
+> The latest bitstream (`cynthion_passthrough.py`) still provides a **USB Full‑Speed passthrough**, **plus** a tiny UART‑driven injector.  
+> The Rust CLI (`packetry_injector`) now acts as a **gateway** – it listens for network commands and forwards raw 3‑byte packets over a serial link (PMOD A) to the FPGA.
+
+KMBoxetry explores low‑level USB manipulation on the **[Cynthion FPGA](https://greatscottgadgets.com/cynthion/)**. It ships:
+
+- **Amaranth/LUNA gateware** – FS passthrough + UART HID injection.
+- **Rust CLI** – network‑to‑UART bridge for easy scripting.
+
+---
+
+## Table of Contents
+1. [Features](#features)  
+2. [Requirements](#requirements)  
+3. [Installation](#installation)  
+   3.1 [Environment setup](#1-environment-setup) | 3.2 [Build gateware](#2-build-the-fpga-gateware) | 3.3 [Flash gateware](#3-flash-the-fpga-gateware) | 3.4 [Build Rust CLI](#4-build-the-rust-cli)  
+4. [Hardware setup](#hardware-setup)  
+5. [Usage](#usage)  
+   5.1 [Run gateway](#running-the-rust-gateway) | 5.2 [Send commands](#sending-commands)  
+6. [Architecture](#architecture)  
+7. [Development](#development)  
+8. [Troubleshooting](#troubleshooting)  
+9. [License](#license)  
+10. [Acknowledgements](#acknowledgements)
+
+---
 
 ## Features
 
-- **Dual Control Modes**: Operate via UDP server or Serial port
-- **Multiple USB Speed Support**: Configure for Low, Full, or High speed USB operation
-- **Mouse Control**: Send precise mouse movements and button presses
-- **Device Discovery**: Automatically detect and list available Cynthion devices
-- **Flexible Command Format**: Simple text-based command format (`buttons,dx,dy`)
+- **USB passthrough** – Full‑/Low‑Speed packets flow between **TARGET (J2)** ⇄ **CONTROL (J3)**.
+- **HID injection** – FPGA can splice one‑byte‑per‑axis mouse reports (`buttons, dx, dy`).
+- **UART control** – Send _exactly_ three bytes over PMOD A @ 115200 baud to inject.
+- **Rust gateway** – Accepts UDP strings (`buttons,dx,dy`) → forwards raw UART bytes.
+
+---
 
 ## Requirements
 
-- Cynthion FPGA device (VID: 0x1d50, PID: 0x615b)
-- Rust toolchain (for building from source)
-- For FPGA flashing: openFPGALoader
+| Category | Items |
+| -------- | ----- |
+| **Hardware** | Cynthion board · **UART↔USB adapter** (FT232 / CP210x) |
+| **FPGA toolchain** | [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build) (Yosys + nextpnr‑ecp5 + Trellis) |
+| **Python** | Python 3 · `amaranth` · `luna` · `pyserial` |
+| **Flashing** | `dfu-util` |
+| **Rust** | Stable toolchain (`rustup`, `cargo`) |
+
+---
 
 ## Installation
 
-### From Source
-
-1. Clone the repository:
-   ```sh
-   git clone https://github.com/yourusername/kmboxetry.git
-   cd kmboxetry
-   ```
-
-2. Build the project:
-   ```sh
-   cargo build --release
-   ```
-
-3. The binary will be available at `target/release/packetry_injector`
-
-### Flashing the FPGA
-
-To flash the Cynthion FPGA with the required bitstream:
+### 1. Environment setup
 
 ```bash
-cd src/backend
-./build_and_flash.sh
+# Python deps for gateware build
+pip install amaranth amaranth-boards \
+           git+https://github.com/greatscottgadgets/luna.git \
+           pyserial
 ```
 
-This script will:
-1. Check for dependencies
-2. Build the Rust project
-3. Flash the FPGA bitstream (if available)
-4. Test the connection to the Cynthion device
+Make sure `dfu-util`, OSS CAD Suite binaries, and `cargo` are on your `$PATH`.
+
+### 2. Build the FPGA gateware
+
+```bash
+# repo root
+env PYTHONPATH=. python src/backend/cynthion_passthrough.py
+```
+The bitstream appears at `build/gateware/top.bit`.
+
+### 3. Flash the FPGA gateware
+
+1. **Enter DFU** – hold **USR**, tap **RST**, release **USR** (green **STAT** LED off).  
+2. **Flash**
+   ```bash
+   dfu-util -d 1d50:615b -a 0 -D build/gateware/top.bit
+   ```
+3. **Reset** – press **RST**; passthrough + injector are live.
+
+### 4. Build the Rust CLI
+
+```bash
+git clone https://github.com/yourusername/kmboxetry.git
+cd kmboxetry
+cargo build --release
+```
+Binary: `target/release/packetry_injector`.
+
+---
+
+## Hardware setup
+
+| Connection | Details |
+| ---------- | ------- |
+| Host PC USB | → **TARGET (J2)** |
+| USB device (mouse, etc.) | → **CONTROL (J3)** |
+| UART adapter TX | → PMOD A Pin 1 (FPGA RX) |
+| UART adapter RX | → PMOD A Pin 2 (FPGA TX) |
+| Ground | → PMOD A Pin 5/6 |
+
+> Default UART settings: **115200 8N1**.
+
+---
 
 ## Usage
 
-### Basic Command Line Options
+### Running the Rust gateway
 
-```sh
-packetry_injector [OPTIONS]
+```bash
+# list serial ports
+target/release/packetry_injector --list
+
+# start UDP→UART bridge
+target/release/packetry_injector \
+    --udp 127.0.0.1:9001 \
+    --control-serial /dev/ttyUSB0  # or COM3 on Windows
 ```
 
-### Options
+### Sending commands
 
-- `--udp <IP:PORT>`: Run in UDP server mode, listening on the specified IP and port
-- `--serial <PORT>`: Run in Serial server mode, using the specified port
-- `--baud <RATE>`: Set baud rate for serial communication (default: 115200)
-- `--speed <SPEED>`: USB speed for injection (low, full, high) (default: full)
-- `--list`: List available Cynthion devices and serial ports and exit
-- `--device-index <INDEX>`: Index of the Cynthion device to use (default: 0)
-- `--dependencies`: Print dependency versions (use with --version)
-- `--version`: Print version information
+Each UDP payload is an ASCII string: `buttons,dx,dy`.
 
-### Command Format
+```bash
+# left‑click
+echo "1,0,0" | nc -u -w0 127.0.0.1 9001
 
-Commands are sent as comma-separated values in the format:
-```sh
-buttons,dx,dy
+# move right 20 / down 5
+echo "0,20,5" | nc -u -w0 127.0.0.1 9001
 ```
 
-Where:
-- `buttons`: Button state bitmask (0x01 = Left, 0x02 = Right, 0x04 = Middle)
-- `dx`: Relative X-axis movement (-127 to 127)
-- `dy`: Relative Y-axis movement (-127 to 127)
+Python snippet:
 
-### Examples
+```python
+import socket, time
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+addr = ("127.0.0.1", 9001)
 
-#### UDP Mode
+def send(btn, dx, dy):
+    msg = f"{btn},{dx},{dy}".encode()
+    sock.sendto(msg, addr)
 
-Start the server listening on localhost port 9001:
-```sh
-packetry_injector --udp 127.0.0.1:9001
+send(0, 10, 0)   # move
+time.sleep(0.1)
+send(1, 0, 0)    # press
+time.sleep(0.1)
+send(0, 0, 0)    # release
 ```
 
-Send commands using netcat:
-```sh
-echo "1,0,0" | nc -u 127.0.0.1 9001  # Left click
-echo "0,10,0" | nc -u 127.0.0.1 9001  # Move right
-echo "0,0,-10" | nc -u 127.0.0.1 9001  # Move up
-```
-
-#### Serial Mode
-
-Start the server using a serial port:
-```sh
-packetry_injector --serial /dev/ttyACM0 --baud 115200
-```
-
-Send commands through the serial port using any serial terminal application.
-
-#### Listing Devices
-
-List all available Cynthion devices and serial ports:
-```sh
-packetry_injector --list
-```
+---
 
 ## Architecture
 
-The project consists of several key components:
+```text
+┌────────────┐  UDP  ┌──────────────────┐  Serial  ┌────────────┐
+│ Script/App │ ────► │ Rust Gateway CLI │ ───────► │ UART Dongle│
+└────────────┘       │ packetry_injector│          │ (FT232)   │
+                     └────────┬─────────┘          └─────┬──────┘
+                              │ 115200 8N1               │
+                              ▼                          ▼
+                      ┌──────────────────────────────────────────┐
+                      │  Cynthion FPGA (ECP5)                    │
+                      │  • ULPI PHY J2 ↔ Host PC                │
+                      │  • ULPI PHY J3 ↔ Target Device          │
+                      │  • UART Rx/Tx ↔ PMOD A                  │
+                      │  • Amaranth/LUNA passthrough + injector │
+                      └──────────────────────────────────────────┘
+```
 
-1. **Command Line Interface**: Handles user input and configuration
-2. **UDP/Serial Servers**: Receive commands from external sources
-3. **HID Injector**: Communicates with the Cynthion device to send HID reports
-4. **Device Discovery**: Finds and configures available Cynthion devices
+---
 
 ## Development
 
-### Project Structure
+```bash
+# Rust
+cargo build && cargo test
 
-- `src/main.rs`: Entry point and server implementations
-- `src/inject.rs`: Core HID injection functionality
-- `src/version.rs`: Version information
-- `src/backend/`: FPGA-specific implementations
-- `cynthion_injector.rs`: Cynthion device communication
-- `build_and_flash.sh`: Script for building and flashing the FPGA
-
-### Building for Development
-
-```sh
-cargo build
+# Gateware (needs Python env)
+python src/backend/cynthion_passthrough.py
 ```
 
-### Running Tests
+### Coverage
 
-```sh
-cargo test
+```bash
+cargo install cargo-tarpaulin
+cargo tarpaulin --out Html --output-dir coverage \
+                --packages packetry_injector
+open coverage/tarpaulin-report.html
 ```
+
+---
 
 ## Troubleshooting
 
-### Device Not Found
+<details>
+<summary>USB device on J3 not detected by host</summary>
 
-- Ensure the Cynthion device is properly connected
-- Check that the device has the correct firmware loaded
-- Run with `--list` to verify the device is detected
+* Re‑flash correct bitstream & reset.
+* Check cabling: Host ↔ J2, Device ↔ J3.
+* Only FS/LS devices work.
+* Ensure VBUS on J3 (jumper) or self‑powered device.
+</details>
 
-### Injection Not Working
+<details>
+<summary>Gateway running but nothing happens</summary>
 
-- Verify the USB speed is supported by your device
-- Check that the target system recognizes the injected HID device
-- Try different USB speeds (low, full, high)
+* `--control-serial` port correct? Use `--list`.
+* Baud mismatch – pass `--control-baud 115200` if changed.
+* Verify TX/RX wiring on PMOD A.
+* Confirm UDP target IP/port & firewall.
+</details>
 
-### Permission Issues
+### udev rules (Linux)
 
-On Linux, you may need to add udev rules to access the USB device without root:
-
-```sh
-# /etc/udev/rules.d/50-cynthion.rules
+```udev
+# Cynthion DFU
 SUBSYSTEM=="usb", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="615b", MODE="0666"
+# CP210x example
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", MODE="0666", GROUP="dialout"
+# FT232 example
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", MODE="0666", GROUP="dialout"
 ```
 
-After adding the rule, reload udev rules:
-```sh
-sudo udevadm control --reload-rules
-sudo udevadm trigger
+```bash
+sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
+
+---
 
 ## License
 
-This project is licensed under the terms found in the LICENSE file.
+Distributed under the terms of the **MIT License** – see `LICENSE`.
 
-## Acknowledgments
+## Acknowledgements
 
-- This project uses the Cynthion FPGA platform
-- Built with Rust and various open-source libraries
+* **Cynthion** by *Great Scott Gadgets*.
+* Built with **Amaranth HDL**, **LUNA USB framework**, and a stack of fantastic Rust crates.
+

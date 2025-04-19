@@ -6,4 +6,5 @@
 /tests/hid/*/output.txt
 /vcpkg
 /.vscode
-Cargo.lock
+fpga/cynthion_injector.json
+fpga/bitstream.bit
