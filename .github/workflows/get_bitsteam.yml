@@ -1,0 +1,81 @@
+name: Generate Cynthion Bitstream
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'hdl/**'
+      - '.github/workflows/generate-bitstream.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'hdl/**'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build-bitstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake python3-pip python3-dev \
+            libboost-all-dev libeigen3-dev zlib1g-dev libftdi1-dev
+
+      - name: Setup FPGA toolchain
+        run: |
+          # Install OSS CAD Suite which includes Yosys, nextpnr, and other FPGA tools
+          wget -O oss-cad-suite.tgz "https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2023-05-05/oss-cad-suite-linux-x64-20230505.tgz"
+          mkdir -p oss-cad-suite
+          tar -xzf oss-cad-suite.tgz -C oss-cad-suite --strip-components=1
+          echo "PATH=$(pwd)/oss-cad-suite/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Install Python requirements
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install migen nmigen luna amaranth
+
+      - name: Clone Cynthion repository if needed
+        if: ${{ !contains(github.repository, 'cynthion') }}
+        run: |
+          git clone --recursive https://github.com/greatscottgadgets/cynthion.git cynthion-repo
+          cd cynthion-repo
+
+      - name: Build bitstream
+        run: |
+          # If running in the Cynthion repository
+          if [[ "$GITHUB_REPOSITORY" == *"cynthion"* ]]; then
+            CYNTHION_DIR="."
+          else
+            CYNTHION_DIR="./cynthion-repo"
+          fi
+          
+          cd $CYNTHION_DIR
+          
+          # Run the build system (adjust paths as needed for your specific Cynthion setup)
+          cd hardware/luna
+          python3 -m amaranth_boards.cynthion create-bitstream
+
+      - name: Upload bitstream as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: cynthion-bitstream
+          path: |
+            **/*.bit
+            **/*.svf
+          if-no-files-found: error
+
+      - name: Create release with bitstream (on tag only)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            **/*.bit
+            **/*.svf
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
