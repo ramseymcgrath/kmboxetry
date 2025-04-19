@@ -22,6 +22,10 @@ use num_enum::{IntoPrimitive, FromPrimitive};
 use derive_more::{From, Into, Display};
 use usb_ids::FromId;
 
+// Alias for usb-ids crate
+#[allow(unused_imports)]
+use usb_ids as usb_ids;
+
 use crate::util::{
     vec_map::VecMap,
     titlecase
@@ -1271,7 +1275,7 @@ fn fmt_str_id(strings: &VecMap<StringId, UTF16ByteVec>, id: StringId)
 {
     match id.0 {
         0 => "(none)".to_string(),
-        _ => match &strings.get(id) {
+        _ => match &strings.get(&id) {
             Some(utf16) => format!("#{id} {utf16}"),
             None => format!("#{id} (not seen)")
         }

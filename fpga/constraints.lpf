@@ -1,0 +1,38 @@
+# Constraints file for Cynthion FPGA
+# This file defines pin mappings and timing constraints
+
+# Clock constraints
+LOCATE COMP "clk" SITE "P6";
+FREQUENCY PORT "clk" 100.0 MHz;
+
+# Reset pin
+LOCATE COMP "rst_n" SITE "R7";
+
+# USB pins
+LOCATE COMP "usb_dp" SITE "A2";
+LOCATE COMP "usb_dm" SITE "A1";
+LOCATE COMP "usb_pu" SITE "A3";
+
+# LED pins
+LOCATE COMP "leds[0]" SITE "B16";
+LOCATE COMP "leds[1]" SITE "C16";
+LOCATE COMP "leds[2]" SITE "D16";
+LOCATE COMP "leds[3]" SITE "E16";
+
+# IO standards
+IOBUF PORT "clk" IO_TYPE=LVCMOS33;
+IOBUF PORT "rst_n" IO_TYPE=LVCMOS33 PULLMODE=UP;
+IOBUF PORT "usb_dp" IO_TYPE=LVCMOS33;
+IOBUF PORT "usb_dm" IO_TYPE=LVCMOS33;
+IOBUF PORT "usb_pu" IO_TYPE=LVCMOS33;
+IOBUF PORT "leds[0]" IO_TYPE=LVCMOS33;
+IOBUF PORT "leds[1]" IO_TYPE=LVCMOS33;
+IOBUF PORT "leds[2]" IO_TYPE=LVCMOS33;
+IOBUF PORT "leds[3]" IO_TYPE=LVCMOS33;
+
+# Timing constraints
+DEFINE PORT GROUP "usb_signals" "usb_dp" "usb_dm" "usb_pu";
+DEFINE PORT GROUP "led_signals" "leds[0]" "leds[1]" "leds[2]" "leds[3]";
+
+# Set false paths for LEDs (not timing critical)
+BLOCK PATH FROM GROUP "led_signals" TO GROUP "usb_signals";

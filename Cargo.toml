@@ -14,6 +14,16 @@ ctrlc = "3.4" # For graceful shutdown on Ctrl+C
 futures-lite = "1.13" # For block_on in async code
 futures-channel = "0.3" # For oneshot channel
 
+# Dependencies for testing only
+[dev-dependencies]
+bytemuck = { version = "1.14", features = ["derive"] }
+bytemuck_derive = "1.5"
+crc = "3.0"
+derive_more = "0.99"
+itertools = "0.12"
+num_enum = "0.7"
+usb-ids = "1.4"
+
 # Windows console attach logic removed as it's no longer needed
 
 # Build dependencies removed as we no longer use built.rs for version info

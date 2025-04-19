@@ -1,5 +1,6 @@
 //! USB HID Mouse Injector using Cynthion.
 
+use std::fmt::Debug;
 use std::time::Duration;
 use anyhow::{Context as ErrorContext, Error, bail};
 use nusb::{
@@ -8,6 +9,7 @@ use nusb::{
     DeviceInfo,
     Interface,
 };
+use bitfield::bitfield;
 
 // Assuming Speed enum is still needed for configuration via control requests.
 // This might come from another module or be defined here.
@@ -15,18 +17,18 @@ use nusb::{
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum Speed {
-    High = 0,
+    Low = 0,
     Full = 1,
-    Low = 2,
+    High = 2,
     Auto = 3,
 }
 
 impl From<u8> for Speed {
     fn from(val: u8) -> Speed {
         match val {
-            0 => Speed::High,
+            0 => Speed::Low,
             1 => Speed::Full,
-            2 => Speed::Low,
+            2 => Speed::High,
             _ => Speed::Auto,
         }
     }
@@ -35,9 +37,9 @@ impl From<u8> for Speed {
 impl From<Speed> for u8 {
     fn from(speed: Speed) -> u8 {
         match speed {
-            Speed::High => 0,
+            Speed::Low => 0,
             Speed::Full => 1,
-            Speed::Low => 2,
+            Speed::High => 2,
             Speed::Auto => 3,
         }
     }
@@ -51,7 +53,7 @@ const PROTOCOL: u8 = 0x01;    // Protocol version for the firmware feature
 
 // --- ASSUMPTIONS - VERIFY THESE! ---
 // Endpoint address for sending HID reports (Interrupt OUT assumed)
-const HID_INJECT_ENDPOINT: u8 = 0x02;
+const HID_INJECT_ENDPOINT: u8 = 0x01;
 // Control request codes (assuming reuse from capture firmware)
 const REQ_ENABLE_INTERFACE: u8 = 1;
 const REQ_GET_SUPPORTED_SPEEDS: u8 = 2;
@@ -63,7 +65,8 @@ const DEFAULT_TIMEOUT: Duration = Duration::from_secs(1);
 // Bitfield for Interface State Control (Enable/Speed) - Assuming reuse
 bitfield! {
     #[derive(Copy, Clone)]
-    struct InterfaceState(u8);
+    pub struct InterfaceState(u8);
+    impl Debug;
     bool, enable, set_enable: 0;
     u8, from into Speed, speed, set_speed: 2, 1; // Assumes Speed has from/into
 }

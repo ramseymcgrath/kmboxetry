@@ -48,6 +48,34 @@ This script will:
 3. Flash the FPGA bitstream (if available)
 4. Test the connection to the Cynthion device
 
+### Automated Bitstream Generation
+
+The project uses GitHub Actions to automatically generate the FPGA bitstream file. This process is defined in the `.github/workflows/get_bitstream.yml` workflow file.
+
+#### How It Works
+
+1. **Trigger**: The workflow is triggered on:
+   - Pushes to the repository that modify files in `src/` or `fpga/` directories
+   - Manual triggering via the GitHub Actions UI
+
+2. **Build Process**:
+   - Sets up the necessary FPGA toolchain (Yosys, nextpnr, etc.)
+   - Examines the project structure to determine the build system (Makefile, Python script, or manual synthesis)
+   - Builds the bitstream using the appropriate method
+   - Compiles and tests the Rust project
+
+3. **Artifact Generation**:
+   - The generated bitstream is saved as an artifact named "cynthion-bitstream"
+   - This artifact can be downloaded from the GitHub Actions page
+
+4. **Usage**:
+   - Download the artifact from the latest successful workflow run
+   - Extract the bitstream file
+   - Place it in the appropriate location (`fpga/bitstream.bit` or `src/backend/fpga/bitstream.bit`)
+   - Use the `build_and_flash.sh` script to flash it to your device
+
+Note: The repository contains placeholder bitstream files that are replaced by the actual binary files generated during the GitHub Actions workflow.
+
 ## Usage
 
 ### Basic Command Line Options

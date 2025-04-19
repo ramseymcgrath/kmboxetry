@@ -1,17 +1,13 @@
 // Remove GUI subsystem directive
 // #![windows_subsystem = "windows"]
 
-// Keep bitfield if used directly or by injector.rs
-#[macro_use]
-extern crate bitfield;
-
-// Remove built crate dependency
+// Import crates
+use bitfield;
 
 // Declare necessary modules
 mod inject; // Contains HidInjector, probe_devices, Speed, etc.
-// mod usb; // Only if still needed for shared types not in inject.rs
-// mod util; // Only if still needed by inject.rs
-mod version; // Optional: Keep for version command
+mod util; // Utility functions and types
+mod version; // Keep for version command
 
 use anyhow::{bail, Context, Error};
 use clap::Parser;
