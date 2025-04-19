@@ -1,232 +1,220 @@
-# KMBoxetry - USB HID Injection for Cynthion FPGA
+# KMBoxetry – Cynthion USB Tooling
 
 [![Build Status](https://github.com/yourusername/kmboxetry/actions/workflows/get_bitstream.yml/badge.svg)](https://github.com/yourusername/kmboxetry/actions/workflows/get_bitstream.yml)
 [![Code Coverage](https://codecov.io/gh/yourusername/kmboxetry/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/kmboxetry)
 
-KMBoxetry is a tool for injecting USB HID (Human Interface Device) commands using Cynthion FPGA hardware. It allows you to send mouse movements and button presses through a Cynthion device, which can be controlled via UDP or serial communication.
+> 🚧 **Current status – passthrough‑only gateware**  
+> The FPGA bitstream (`cynthion_passthrough.py`) implements a **USB Full‑Speed transparent passthrough**.  
+> Commands sent by the Rust CLI (`packetry_injector`) have **no effect** on USB traffic with this bitstream.  
+> Future work will re‑enable HID injection inside the gateware.
+
+KMBoxetry explores USB manipulation on the **[Cynthion FPGA](https://greatscottgadgets.com/cynthion/)** platform. It ships:
+
+- **Amaranth/LUNA gateware** for the FPGA.
+- A **Rust CLI** for device discovery and, eventually, HID injection.
+
+---
+
+## Table of Contents
+
+1. [Features](#features)
+2. [Requirements](#requirements)
+3. [Installation](#installation)
+   - [Environment setup](#1-environment-setup)
+   - [Build the FPGA gateware](#2-build-the-fpga-gateware)
+   - [Flash the FPGA gateware](#3-flash-the-fpga-gateware)
+   - [Build the Rust CLI (optional)](#4-build-the-rust-cli-optional)
+4. [Usage](#usage)
+5. [Architecture](#architecture)
+6. [Development](#development)
+7. [Troubleshooting](#troubleshooting)
+8. [License](#license)
+9. [Acknowledgements](#acknowledgements)
+
+---
 
 ## Features
 
-- **Dual Control Modes**: Operate via UDP server or Serial port
-- **Multiple USB Speed Support**: Configure for Low, Full, or High speed USB operation
-- **Mouse Control**: Send precise mouse movements and button presses
-- **Device Discovery**: Automatically detect and list available Cynthion devices
-- **Flexible Command Format**: Simple text-based command format (`buttons,dx,dy`)
+- **FPGA passthrough:** USB FS packets flow between Cynthion’s **TARGET (J2)** ↔ **CONTROL (J3)** ports with minimal latency.
+- **Rust CLI (`packetry_injector`):**
+  - Dual back‑ends – UDP server or serial listener.
+  - Automatic Cynthion discovery & listing.
+  - Command parser (`buttons,dx,dy`) ready for future injection support.
+
+---
 
 ## Requirements
 
-- Cynthion FPGA device (VID: 0x1d50, PID: 0x615b)
-- Rust toolchain (for building from source)
-- For FPGA flashing: openFPGALoader
+| Category          | Items                                                                                                                                          |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Hardware**      | Cynthion FPGA board                                                                                                                             |
+| **FPGA toolchain**| [OSS CAD Suite](https://github.com/YosysHQ/oss-cad-suite-build) (Yosys + nextpnr‑ecp5 + Project Trellis)                                         |
+| **Python**        | Python 3 · `amaranth` · `luna` · `pyserial`                                                                                                     |
+| **Flashing**      | `dfu-util`                                                                                                                                      |
+| **Rust**          | Stable toolchain (`rustup`, `cargo`)                                                                                                            |
+
+---
 
 ## Installation
 
-### From Source
-
-1. Clone the repository:
-   ```sh
-   git clone https://github.com/yourusername/kmboxetry.git
-   cd kmboxetry
-   ```
-
-2. Build the project:
-   ```sh
-   cargo build --release
-   ```
-
-3. The binary will be available at `target/release/packetry_injector`
-
-### Flashing the FPGA
-
-To flash the Cynthion FPGA with the required bitstream:
+### 1. Environment setup
 
 ```bash
-cd src/backend
-./build_and_flash.sh
+# Python dependencies
+pip install amaranth amaranth-boards \
+           git+https://github.com/greatscottgadgets/luna.git \
+           pyserial
 ```
 
-This script will:
-1. Check for dependencies
-2. Build the Rust project
-3. Flash the FPGA bitstream (if available)
-4. Test the connection to the Cynthion device
+Ensure `dfu-util` and OSS CAD Suite binaries are on your `$PATH`.
 
-### Automated Bitstream Generation
+### 2. Build the FPGA gateware
 
-The project uses GitHub Actions to automatically generate the FPGA bitstream file. This process is defined in the `.github/workflows/get_bitstream.yml` workflow file.
+```bash
+# From the repository root
+python src/backend/cynthion_passthrough.py
+```
 
-#### How It Works
+This produces `build/gateware/top.bit`.
 
-1. **Trigger**: The workflow is triggered on:
-   - Pushes to the repository that modify files in `src/` or `fpga/` directories
-   - Manual triggering via the GitHub Actions UI
+### 3. Flash the FPGA gateware
 
-2. **Build Process**:
-   - Sets up the necessary FPGA toolchain (Yosys, nextpnr, etc.)
-   - Examines the project structure to determine the build system (Makefile, Python script, or manual synthesis)
-   - Builds the bitstream using the appropriate method
-   - Compiles and tests the Rust project
+1. **Enter DFU mode**  
+   - Hold **USR** → press **RST** → release **USR**.  
+   - The green **STAT** LED turns off.
+2. **Flash**
+   ```bash
+   dfu-util -d 1d50:615b -a 0 -D build/gateware/top.bit
+   ```
+   > Replace `1d50:615b` if your board uses a different VID:PID.
+3. **Reset Cynthion** – press **RST** to load the new bitstream.
 
-3. **Artifact Generation**:
-   - The generated bitstream is saved as an artifact named "cynthion-bitstream"
-   - This artifact can be downloaded from the GitHub Actions page
+### 4. Build the Rust CLI (optional)
 
-4. **Usage**:
-   - Download the artifact from the latest successful workflow run
-   - Extract the bitstream file
-   - Place it in the appropriate location (`fpga/bitstream.bit` or `src/backend/fpga/bitstream.bit`)
-   - Use the `build_and_flash.sh` script to flash it to your device
+```bash
+git clone https://github.com/yourusername/kmboxetry.git
+cd kmboxetry
+cargo build --release
+```
 
-Note: The repository contains placeholder bitstream files that are replaced by the actual binary files generated during the GitHub Actions workflow.
+The binary is at `target/release/packetry_injector`.
+
+---
 
 ## Usage
 
-### Basic Command Line Options
+### Passthrough demo
 
-```sh
+1. Host PC ↔ **TARGET (J2)**  
+2. USB device ↔ **CONTROL (J3)**  
+
+The device on J3 enumerates on the host as if directly attached.
+
+### Rust CLI (experimental)
+
+```
 packetry_injector [OPTIONS]
 ```
 
-### Options
+| Option | Description                      |
+| ------ | -------------------------------- |
+| `--udp IP:PORT`      | Run UDP server             |
+| `--serial PORT`      | Run serial server          |
+| `--baud RATE`        | Serial baud (default 115200) |
+| `--speed {low|full|high}` | Intended USB speed (no effect yet) |
+| `--list`             | List Cynthion devices & exit |
+| `--device-index N`   | Select device index        |
+| `--version`          | Show version information   |
 
-- `--udp <IP:PORT>`: Run in UDP server mode, listening on the specified IP and port
-- `--serial <PORT>`: Run in Serial server mode, using the specified port
-- `--baud <RATE>`: Set baud rate for serial communication (default: 115200)
-- `--speed <SPEED>`: USB speed for injection (low, full, high) (default: full)
-- `--list`: List available Cynthion devices and serial ports and exit
-- `--device-index <INDEX>`: Index of the Cynthion device to use (default: 0)
-- `--dependencies`: Print dependency versions (use with --version)
-- `--version`: Print version information
+> **Heads‑up:** With the passthrough bitstream loaded, CLI commands do **nothing** – they’re here for future integration.
 
-### Command Format
-
-Commands are sent as comma-separated values in the format:
-```sh
-buttons,dx,dy
-```
-
-Where:
-- `buttons`: Button state bitmask (0x01 = Left, 0x02 = Right, 0x04 = Middle)
-- `dx`: Relative X-axis movement (-127 to 127)
-- `dy`: Relative Y-axis movement (-127 to 127)
-
-### Examples
-
-#### UDP Mode
-
-Start the server listening on localhost port 9001:
-```sh
-packetry_injector --udp 127.0.0.1:9001
-```
-
-Send commands using netcat:
-```sh
-echo "1,0,0" | nc -u 127.0.0.1 9001  # Left click
-echo "0,10,0" | nc -u 127.0.0.1 9001  # Move right
-echo "0,0,-10" | nc -u 127.0.0.1 9001  # Move up
-```
-
-#### Serial Mode
-
-Start the server using a serial port:
-```sh
-packetry_injector --serial /dev/ttyACM0 --baud 115200
-```
-
-Send commands through the serial port using any serial terminal application.
-
-#### Listing Devices
-
-List all available Cynthion devices and serial ports:
-```sh
-packetry_injector --list
-```
+---
 
 ## Architecture
 
-The project consists of several key components:
+```text
+          ┌──────────────────────┐        Rust CLI
+          │      Host PC         │<────┐  (UDP / Serial)
+          └────────┬─────────────┘     │
+                   │ USB FS            │
+            TARGET │ (ULPI PHY)        │ commands
+               J2  ▼                   │
+           ┌──────────────┐            │
+           │  Cynthion    │────────────┘
+           │  (ECP5 FPGA) │
+           └──────────────┘
+               ▲  CONTROL J3
+               │  USB FS
+           Target USB device
+```
 
-1. **Command Line Interface**: Handles user input and configuration
-2. **UDP/Serial Servers**: Receive commands from external sources
-3. **HID Injector**: Communicates with the Cynthion device to send HID reports
-4. **Device Discovery**: Finds and configures available Cynthion devices
+- **Gateware:** `src/backend/cynthion_passthrough.py` (Amaranth + LUNA)
+- **CLI:** `src/` Rust crate – discovery, server back‑ends, placeholder injection logic.
+
+---
 
 ## Development
 
-### Project Structure
-
-- `src/main.rs`: Entry point and server implementations
-- `src/inject.rs`: Core HID injection functionality
-- `src/version.rs`: Version information
-- `src/backend/`: FPGA-specific implementations
-- `cynthion_injector.rs`: Cynthion device communication
-- `build_and_flash.sh`: Script for building and flashing the FPGA
-
-### Building for Development
-
-```sh
+```bash
+# Build Rust
 cargo build
-```
 
-### Running Tests
-
-```sh
+# Unit tests
 cargo test
+
+# Build gateware (requires Python env)
+python src/backend/cynthion_passthrough.py
 ```
 
-### Code Coverage
+### Coverage
 
-This project uses `cargo-tarpaulin` to measure code coverage and reports the results via Codecov. The coverage badge at the top of this README shows the current coverage percentage.
-
-To generate coverage reports locally:
-
-```sh
-# Install cargo-tarpaulin
-cargo install cargo-tarpaulin
-
-# Run coverage analysis
-cargo tarpaulin --out Html --output-dir coverage
-
-# View the report
+```bash
+cargo install cargo-tarpaulin  # one‑time install
+cargo tarpaulin --out Html --output-dir coverage \
+                --exclude-files src/usb.rs --packages packetry_injector
 open coverage/tarpaulin-report.html
 ```
 
-The GitHub Actions workflow automatically generates coverage reports for each commit and uploads them to Codecov. You can view detailed reports by clicking on the code coverage badge.
+---
 
 ## Troubleshooting
 
-### Device Not Found
+<details>
+<summary>Device on J3 not detected by host</summary>
 
-- Ensure the Cynthion device is properly connected
-- Check that the device has the correct firmware loaded
-- Run with `--list` to verify the device is detected
+- Re‑flash the correct bitstream & reset Cynthion.
+- Confirm cabling: Host ↔ J2, Device ↔ J3.
+- Only Full‑/Low‑Speed devices are supported.
+- Check power on J3.
+- Verify Cynthion hardware integrity.
+</details>
 
-### Injection Not Working
+<details>
+<summary>CLI can’t find Cynthion</summary>
 
-- Verify the USB speed is supported by your device
-- Check that the target system recognizes the injected HID device
-- Try different USB speeds (low, full, high)
+- In passthrough mode the FPGA does **not** enumerate over USB. Discovery only works in DFU mode or with firmware exposing a VID:PID.
+- Add udev rules (see below) and reconnect.
+</details>
 
-### Permission Issues
+### udev rules (Linux)
 
-On Linux, you may need to add udev rules to access the USB device without root:
-
-```sh
+```udev
 # /etc/udev/rules.d/50-cynthion.rules
 SUBSYSTEM=="usb", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="615b", MODE="0666"
 ```
 
-After adding the rule, reload udev rules:
-```sh
-sudo udevadm control --reload-rules
-sudo udevadm trigger
+```bash
+sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
+
+---
 
 ## License
 
-This project is licensed under the terms found in the LICENSE file.
+Distributed under the terms of the **MIT License**. See `LICENSE` for full text.
 
-## Acknowledgments
+## Acknowledgements
 
-- This project uses the Cynthion FPGA platform
-- Built with Rust and various open-source libraries
+- **Cynthion** by *Great Scott Gadgets*.
+- Built with **Amaranth HDL**, **LUNA USB framework**, and a stack of amazing open‑source crates.
+
