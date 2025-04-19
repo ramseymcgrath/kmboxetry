@@ -12,8 +12,6 @@ use anyhow::{bail, Context, Error};
 use clap::Parser;
 use serialport::SerialPort; // Import the trait
 
-// Declare necessary local modules
-mod util; // Assuming utilities are still needed, otherwise remove
 mod version; // Keep for version command
 
 // Import necessary items from local modules
