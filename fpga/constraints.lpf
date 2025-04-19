@@ -5,15 +5,15 @@
 LOCATE COMP "clk" SITE "P6";
 FREQUENCY PORT "clk" 100.0 MHz;
 
-# Reset pin
-LOCATE COMP "rst_n" SITE "B17";  # Changed from R7 to B17, which should be valid for CABGA381
+# Reset pin (Assuming main board reset button PROGRAMN)
+LOCATE COMP "rst_n" SITE "R7";  # Corrected from B17
 
-# USB pins
-LOCATE COMP "usb_dp" SITE "B19";
-LOCATE COMP "usb_dm" SITE "A19";
-LOCATE COMP "usb_pu" SITE "A18";
+# USB pins (Target port J2 - USB_FPGA)
+LOCATE COMP "usb_dp" SITE "A19"; # Corrected from B19
+LOCATE COMP "usb_dm" SITE "B19"; # Corrected from A19
+LOCATE COMP "usb_pu" SITE "A18"; # Was correct
 
-# LED pins
+# LED pins (Mapping: [0]=LED4, [1]=LED3, [2]=LED2, [3]=LED1)
 LOCATE COMP "leds[0]" SITE "B16";
 LOCATE COMP "leds[1]" SITE "C16";
 LOCATE COMP "leds[2]" SITE "D16";
@@ -22,8 +22,8 @@ LOCATE COMP "leds[3]" SITE "E16";
 # IO standards
 IOBUF PORT "clk" IO_TYPE=LVCMOS33;
 IOBUF PORT "rst_n" IO_TYPE=LVCMOS33 PULLMODE=UP;
-IOBUF PORT "usb_dp" IO_TYPE=LVCMOS33;
-IOBUF PORT "usb_dm" IO_TYPE=LVCMOS33;
+IOBUF PORT "usb_dp" IO_TYPE=LVCMOS33; # Standard practice for ECP5 soft PHY
+IOBUF PORT "usb_dm" IO_TYPE=LVCMOS33; # Standard practice for ECP5 soft PHY
 IOBUF PORT "usb_pu" IO_TYPE=LVCMOS33;
 IOBUF PORT "leds[0]" IO_TYPE=LVCMOS33;
 IOBUF PORT "leds[1]" IO_TYPE=LVCMOS33;
@@ -34,5 +34,12 @@ IOBUF PORT "leds[3]" IO_TYPE=LVCMOS33;
 DEFINE PORT GROUP "usb_signals" "usb_dp" "usb_dm" "usb_pu";
 DEFINE PORT GROUP "led_signals" "leds[0]" "leds[1]" "leds[2]" "leds[3]";
 
-# Set false paths for LEDs (not timing critical)
+# Set false paths for LEDs (outputs not typically timing critical relative to inputs)
+# Consider using this instead or in addition to the BLOCK PATH below
+# BLOCK PATH TO GROUP "led_signals";
+
+# Block paths between unrelated LED and USB groups (Original approach)
 BLOCK PATH FROM GROUP "led_signals" TO GROUP "usb_signals";
+# Optionally block the other direction too if needed, though often covered by BLOCK PATH TO GROUP
+# BLOCK PATH FROM GROUP "usb_signals" TO GROUP "led_signals";
+
