@@ -5,7 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'hdl/**'
-      - '.github/workflows/generate-bitstream.yml'
+      - '.github/workflows/get_bitsteam.yml'
   pull_request:
     branches: [ main ]
     paths:
@@ -62,7 +62,7 @@ jobs:
           python3 -m amaranth_boards.cynthion create-bitstream
 
       - name: Upload bitstream as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v2  # Downgraded from v3 to v2
         with:
           name: cynthion-bitstream
           path: |
