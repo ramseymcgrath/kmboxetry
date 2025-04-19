@@ -130,7 +130,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Upload coverage to Codecov
-        if: hashFiles('Cargo.toml') != '' && hashFiles('coverage/cobertura.xml') != '' && ${{ secrets.CODECOV_TOKEN != '' }}
+        if: hashFiles('Cargo.toml') != '' && hashFiles('coverage/cobertura.xml') != ''
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
