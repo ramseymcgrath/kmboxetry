@@ -1,5 +1,8 @@
 # KMBoxetry - USB HID Injection for Cynthion FPGA
 
+[![Build Status](https://github.com/yourusername/kmboxetry/actions/workflows/get_bitstream.yml/badge.svg)](https://github.com/yourusername/kmboxetry/actions/workflows/get_bitstream.yml)
+[![Code Coverage](https://codecov.io/gh/yourusername/kmboxetry/branch/main/graph/badge.svg)](https://codecov.io/gh/yourusername/kmboxetry)
+
 KMBoxetry is a tool for injecting USB HID (Human Interface Device) commands using Cynthion FPGA hardware. It allows you to send mouse movements and button presses through a Cynthion device, which can be controlled via UDP or serial communication.
 
 ## Features
@@ -170,6 +173,25 @@ cargo build
 ```sh
 cargo test
 ```
+
+### Code Coverage
+
+This project uses `cargo-tarpaulin` to measure code coverage and reports the results via Codecov. The coverage badge at the top of this README shows the current coverage percentage.
+
+To generate coverage reports locally:
+
+```sh
+# Install cargo-tarpaulin
+cargo install cargo-tarpaulin
+
+# Run coverage analysis
+cargo tarpaulin --out Html --output-dir coverage
+
+# View the report
+open coverage/tarpaulin-report.html
+```
+
+The GitHub Actions workflow automatically generates coverage reports for each commit and uploads them to Codecov. You can view detailed reports by clicking on the code coverage badge.
 
 ## Troubleshooting
 
