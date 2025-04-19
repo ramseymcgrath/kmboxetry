@@ -6,7 +6,7 @@ LOCATE COMP "clk" SITE "P6";
 FREQUENCY PORT "clk" 100.0 MHz;
 
 # Reset pin
-LOCATE COMP "rst_n" SITE "R7";
+LOCATE COMP "rst_n" SITE "B17";  # Changed from R7 to B17, which should be valid for CABGA381
 
 # USB pins
 LOCATE COMP "usb_dp" SITE "B19";
