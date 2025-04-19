@@ -42,7 +42,7 @@ jobs:
           # Install HDL tools one by one to handle dependencies better
           python3 -m pip install migen
           python3 -m pip install nmigen
-          python3 -m pip install amaranth
+          python3 -m pip install amaranth amaranth-boards
           
           # Now install luna with explicit dependency resolution
           python3 -m pip install git+https://github.com/greatscottgadgets/luna.git
@@ -51,6 +51,24 @@ jobs:
         if: ${{ !contains(github.repository, 'cynthion') }}
         run: |
           git clone --recursive https://github.com/greatscottgadgets/cynthion.git cynthion-repo
+
+      - name: Examine Cynthion repository structure
+        run: |
+          # Determine repo directory
+          if [[ "$GITHUB_REPOSITORY" == *"cynthion"* ]]; then
+            CYNTHION_DIR="."
+          else
+            CYNTHION_DIR="./cynthion-repo"
+          fi
+          
+          cd $CYNTHION_DIR
+          
+          echo "Examining repository structure:"
+          find . -type d -name "gateware" -o -name "hdl" | sort
+          echo ""
+          
+          echo "Checking for build scripts:"
+          find . -name "*.py" -exec grep -l "build\|synthesis\|bitstream" {} \; | sort
 
       - name: Build bitstream
         run: |
@@ -63,40 +81,55 @@ jobs:
           
           cd $CYNTHION_DIR
           
-          # Print directory structure for debugging
-          echo "Current directory: $(pwd)"
-          ls -la
-          
-          # Run the build system (adjust paths as needed for your specific Cynthion setup)
-          if [ -d "hardware/luna" ]; then
-            cd hardware/luna
-          elif [ -d "luna" ]; then
-            cd luna
-          else
-            echo "Cannot find luna directory, trying amaranth_boards directly"
-          fi
-          
-          echo "Build directory: $(pwd)"
-          ls -la
-          
-          # Try to build the bitstream
-          python3 -m amaranth_boards.cynthion create-bitstream || {
-            echo "Failed with amaranth_boards.cynthion, trying alternative approaches..."
+          # Based on the repository structure seen in the logs
+          if [ -d "cynthion/gateware" ]; then
+            echo "Found cynthion/gateware directory, trying to build there..."
+            cd cynthion/gateware
             
-            # Try alternate build commands if first one fails
-            if [ -f "cynthion.py" ]; then
-              python3 cynthion.py
-            elif [ -d "gateware" ]; then
-              cd gateware
-              if [ -f "build.py" ]; then
-                python3 build.py
-              fi
+            # List Python files to understand what to run
+            ls -la *.py || echo "No Python files found in this directory"
+            
+            # Try to find a build script
+            if [ -f "build.py" ]; then
+              python3 build.py
+            elif [ -f "top.py" ]; then
+              python3 top.py build
+            else
+              echo "No build script found. Trying to find other build methods..."
+              for py_file in $(ls *.py 2>/dev/null); do
+                echo "Trying to run: $py_file"
+                python3 $py_file || echo "Failed to run $py_file"
+              done
             fi
-          }
+          elif [ -f "cynthion/cynthion.py" ]; then
+            echo "Found cynthion/cynthion.py, trying to build using it..."
+            cd cynthion
+            python3 cynthion.py build
+          else
+            echo "Cannot find expected build structure. Examining BUILD.md for guidance..."
+            cat BUILD.md || echo "BUILD.md not found"
+            
+            echo "Trying to follow any visible build instructions..."
+            # As a last resort, if there's a Makefile, try using it
+            if [ -f "Makefile" ]; then
+              make bitstream || make all || make
+            fi
+          fi
           
           # Create directory for artifacts and collect bitstream files
           mkdir -p ${{ github.workspace }}/bitstream_artifacts
-          find $CYNTHION_DIR -name "*.bit" -o -name "*.svf" | xargs -I {} cp {} ${{ github.workspace }}/bitstream_artifacts/ || echo "No bitstream files found"
+          
+          # Look for bitstream files more thoroughly
+          echo "Searching for bitstream files..."
+          find $CYNTHION_DIR -type f -name "*.bit" -o -name "*.svf" -o -name "*.bin" | tee bitstream_files.txt
+          
+          # Copy any found bitstream files
+          if [ -s bitstream_files.txt ]; then
+            cat bitstream_files.txt | xargs -I {} cp {} ${{ github.workspace }}/bitstream_artifacts/
+            echo "Copied bitstream files to artifacts directory"
+          else
+            echo "No bitstream files found"
+          fi
           
           # List what we found
           echo "Bitstream artifacts:"
